@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "RENDER_BACKEND_URL_AQUI/:path*"
+      "destination": "https://el-cafecito-api.onrender.com/:path*"
     },
     {
       "source": "/(.*)",

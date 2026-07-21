@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 sys.path.append(os.path.dirname(__file__))
 
 # Importar el router de productos
-from routers import productos, ventas, reportes, gastos
+from routers import productos, ventas, reportes, gastos, clientes, creditos
 
 app = FastAPI(title="El Cafecito API")
 
@@ -26,6 +26,8 @@ app.include_router(productos.router)
 app.include_router(ventas.router)
 app.include_router(reportes.router)
 app.include_router(gastos.router)
+app.include_router(clientes.router)
+app.include_router(creditos.router)
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):

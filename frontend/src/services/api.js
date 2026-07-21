@@ -28,5 +28,18 @@ export const deleteGasto  = (id) => api.delete(`/gastos/${id}`)
 
 export const getVentas   = () => api.get('/ventas')
 export const createVenta = (data) => api.post('/ventas', data)
+export const deleteVenta = (id) => api.delete(`/ventas/${id}`)
+
+// ─── Clientes ─────────────────────────────────────────────────────────────────
+
+export const getClientes    = () => api.get('/clientes')
+export const createCliente  = (data) => api.post('/clientes', data)
+
+// ─── Créditos ─────────────────────────────────────────────────────────────────
+
+export const getCreditos       = () => api.get('/creditos')
+export const createCredito     = (data) => api.post('/creditos', data)
+export const registrarPago     = (creditoId, data) => api.post(`/creditos/${creditoId}/pagos`, data)
+export const eliminarCredito   = (creditoId) => api.delete(`/creditos/${creditoId}`)
 
 export default api

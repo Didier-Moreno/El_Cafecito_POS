@@ -37,3 +37,29 @@ async def procesar_venta(venta: VentaCreate):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.delete("/{venta_id}")
+async def eliminar_venta(venta_id: int):
+    try:
+        response = supabase.rpc(
+            "eliminar_venta",
+            {"p_venta_id": venta_id}
+        ).execute()
+        
+        if hasattr(response, 'error') and response.error:
+            raise HTTPException(status_code=400, detail=str(response.error))
+            
+        if not response.data:
+            raise HTTPException(status_code=400, detail="No se pudo eliminar la venta.")
+            
+        if isinstance(response.data, dict) and not response.data.get("success"):
+            raise HTTPException(status_code=400, detail="Error en la base de datos al eliminar la venta.")
+            
+        return response.data
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        msg = str(e)
+        if "No se permite eliminar ventas de días anteriores" in msg:
+            raise HTTPException(status_code=400, detail="No se permite eliminar ventas de días anteriores.")
+        raise HTTPException(status_code=400, detail=msg)

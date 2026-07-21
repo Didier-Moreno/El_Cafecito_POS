@@ -10,6 +10,7 @@ import SearchBar from '../components/ui/SearchBar'
 import Table from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
+import DateRangeSelector from '../components/reportes/DateRangeSelector'
 import { useGastos, getEstadoEfectivo, getDiasParaVencer } from '../hooks/useGastos'
 import { formatPrecio } from '../utils/format'
 
@@ -131,6 +132,8 @@ export default function Gastos() {
   const [filterCat, setFilterCat]   = useState('')
   const [sortBy, setSortBy]         = useState('reciente')
   const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'desc' })
+  const [fechaInicio, setFechaInicio] = useState(null)
+  const [fechaFin, setFechaFin]       = useState(null)
 
   // ── Modales ─────────────────────────────────────────────────────────────────
   const [modalOpen, setModalOpen]       = useState(false)
@@ -149,9 +152,33 @@ export default function Gastos() {
     setTimeout(() => setNotificacion(null), 3000)
   }
 
-  // ── Filtrado y ordenamiento ─────────────────────────────────────────────────
+  // ── Filtrado por mes (DateRangeSelector) ────────────────────────────────────
+  const gastosMes = useMemo(() => {
+    if (!fechaInicio || !fechaFin) return gastos
+    const dInicio = new Date(fechaInicio)
+    const dFin = new Date(fechaFin)
+    return gastos.filter((g) => {
+      if (!g.fecha_gasto) return false
+      const dGasto = new Date(g.fecha_gasto + 'T12:00:00')
+      return dGasto >= dInicio && dGasto <= dFin
+    })
+  }, [gastos, fechaInicio, fechaFin])
+
+  // Estadísticas locales del mes seleccionado
+  const statsMes = useMemo(() => {
+    return {
+      total: gastosMes.length,
+      pendientes: gastosMes.filter((g) => getEstadoEfectivo(g) === 'Pendiente').length,
+      pagados: gastosMes.filter((g) => g.estado === 'Pagado').length,
+      valorPendiente: gastosMes
+        .filter((g) => getEstadoEfectivo(g) === 'Pendiente' || getEstadoEfectivo(g) === 'Vencido')
+        .reduce((sum, g) => sum + Number(g.valor), 0),
+    }
+  }, [gastosMes])
+
+  // ── Filtrado secundario (búsqueda, estado, categoría) y ordenamiento ────────
   const gastosFiltrados = useMemo(() => {
-    let lista = gastos.filter((g) => {
+    let lista = gastosMes.filter((g) => {
       const estadoEfectivo = getEstadoEfectivo(g)
       const matchSearch = !search ||
         g.concepto?.toLowerCase().includes(search.toLowerCase()) ||
@@ -186,7 +213,7 @@ export default function Gastos() {
     })
 
     return lista
-  }, [gastos, search, filterEstado, filterCat, sortBy, sortConfig])
+  }, [gastosMes, search, filterEstado, filterCat, sortBy, sortConfig])
 
   const handleSort = (key) => {
     setSortBy('col')
@@ -360,18 +387,32 @@ export default function Gastos() {
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <PageContainer>
+      {/* Encabezado local con Filtro de Mes (DateRangeSelector) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-xl font-black text-cafe-oscuro">Historial de Gastos</h2>
+          <p className="text-xs text-cafe-claro">Visualiza, registra y gestiona los egresos del negocio.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <DateRangeSelector onChange={(start, end) => {
+            setFechaInicio(start)
+            setFechaFin(end)
+          }} />
+        </div>
+      </div>
+
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={DollarSign}
           label="Total Gastos"
-          value={stats.total}
+          value={statsMes.total}
           color="cafe"
         />
         <StatCard
           icon={Clock}
           label="Pendientes"
-          value={stats.pendientes}
+          value={statsMes.pendientes}
           color="warning"
           onClick={() => setFilterEstado(filterEstado === 'Pendiente' ? '' : 'Pendiente')}
           active={filterEstado === 'Pendiente'}
@@ -379,7 +420,7 @@ export default function Gastos() {
         <StatCard
           icon={CheckCircle2}
           label="Pagados"
-          value={stats.pagados}
+          value={statsMes.pagados}
           color="success"
           onClick={() => setFilterEstado(filterEstado === 'Pagado' ? '' : 'Pagado')}
           active={filterEstado === 'Pagado'}
@@ -387,14 +428,14 @@ export default function Gastos() {
         <StatCard
           icon={BadgeDollarSign}
           label="Valor Pendiente"
-          value={`$${formatPrecio(stats.valorPendiente)}`}
+          value={`$${formatPrecio(statsMes.valorPendiente)}`}
           color="danger"
         />
       </div>
 
       {/* Alerta por gastos vencidos */}
       {(() => {
-        const vencidos = gastos.filter((g) => getEstadoEfectivo(g) === 'Vencido').length
+        const vencidos = gastosMes.filter((g) => getEstadoEfectivo(g) === 'Vencido').length
         return vencidos > 0 ? (
           <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
             <AlertCircle size={18} className="text-red-500 flex-shrink-0" />

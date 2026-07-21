@@ -11,7 +11,7 @@ import { formatPrecio } from '../utils/format'
 
 const CATEGORIAS_PREDEFINIDAS = ['Gaseosas', 'Energizantes', 'Cervezas y Maltas', 'Snacks', 'Cafetería']
 
-const EMPTY_FORM = { nombre: '', precio: '', costo: '', stock: '', categoria: '' }
+const EMPTY_FORM = { nombre: '', precio: '', costo: '', stock: '', categoria: '', tiene_variantes: false, variantes: [] }
 
 export default function Inventario() {
   const { productos, loading, error, stats, crear, actualizar, eliminar } = useProductos()
@@ -252,11 +252,13 @@ export default function Inventario() {
 
   const abrirEditar = (producto) => {
     setForm({
-      nombre:    producto.nombre    ?? '',
-      precio:    producto.precio    ?? '',
-      costo:     producto.costo     ?? '',
-      stock:     producto.stock     ?? '',
-      categoria: producto.categoria ?? '',
+      nombre:          producto.nombre          ?? '',
+      precio:          producto.precio          ?? '',
+      costo:           producto.costo           ?? '',
+      stock:           producto.stock           ?? '',
+      categoria:       producto.categoria       ?? '',
+      tiene_variantes: producto.tiene_variantes ?? false,
+      variantes:       producto.producto_variantes ? [...producto.producto_variantes] : [],
     })
     setEditingId(producto.id)
     setFormError('')
@@ -272,25 +274,57 @@ export default function Inventario() {
   }
 
   const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    setForm((prev) => ({ ...prev, [e.target.name]: value }))
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.nombre || !form.precio || form.stock === '') {
-      setFormError('Nombre, precio y stock son obligatorios.')
+    
+    // Validar datos básicos
+    if (!form.nombre || !form.precio) {
+      setFormError('Nombre y precio son obligatorios.')
       return
     }
+
+    // Validar según si tiene variantes
+    let stockTotal = parseInt(form.stock, 10);
+    if (form.tiene_variantes) {
+      if (form.variantes.length === 0) {
+        setFormError('Debe agregar al menos una variante.')
+        return
+      }
+      for (const v of form.variantes) {
+        if (!v.nombre.trim() || v.stock === '' || isNaN(v.stock)) {
+          setFormError('Todas las variantes deben tener nombre y un stock válido.')
+          return
+        }
+      }
+      stockTotal = form.variantes.reduce((sum, v) => sum + parseInt(v.stock, 10), 0);
+    } else {
+      if (form.stock === '' || isNaN(stockTotal)) {
+        setFormError('Stock es obligatorio.')
+        return
+      }
+    }
+
     setSaving(true)
     setFormError('')
     try {
       const payload = {
-        nombre:    form.nombre,
-        precio:    parseFloat(form.precio),
-        costo:     parseFloat(form.costo) || 0,
-        stock:     parseInt(form.stock, 10),
-        categoria: form.categoria || null,
+        nombre:          form.nombre,
+        precio:          parseFloat(form.precio),
+        costo:           parseFloat(form.costo) || 0,
+        stock:           stockTotal,
+        categoria:       form.categoria || null,
+        tiene_variantes: form.tiene_variantes,
+        variantes:       form.tiene_variantes ? form.variantes.map(v => ({
+                           id: v.id || null,
+                           nombre: v.nombre,
+                           stock: parseInt(v.stock, 10)
+                         })) : null,
       }
+      
       if (editingId) {
         await actualizar(editingId, payload)
         mostrarNotificacion('¡Producto actualizado con éxito!')
@@ -627,77 +661,167 @@ export default function Inventario() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-cafe-claro uppercase tracking-wide mb-1">
-                Stock *
-              </label>
-              <input
-                name="stock"
-                type="number"
-                min="0"
-                value={form.stock}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 text-sm border border-cafe-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-cafe-medio/30"
-              />
-            </div>
-            <div>
-              <div className="flex justify-between items-center mb-1">
+          <div className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              id="tiene_variantes"
+              name="tiene_variantes"
+              checked={form.tiene_variantes}
+              onChange={handleChange}
+              className="w-4 h-4 text-cafe-medio rounded border-cafe-beige focus:ring-cafe-medio"
+            />
+            <label htmlFor="tiene_variantes" className="text-sm font-semibold text-cafe-oscuro cursor-pointer">
+              Este producto tiene variantes (ej: Sabores, Marcas)
+            </label>
+          </div>
+
+          {form.tiene_variantes ? (
+            <div className="border border-cafe-beige rounded-xl p-4 bg-cafe-crema/30 space-y-4">
+              <div className="flex items-center justify-between">
                 <label className="block text-xs font-semibold text-cafe-claro uppercase tracking-wide">
-                  Categoría
+                  Variantes del Producto
                 </label>
-                {!showNuevaCatInput && (
-                  <button
-                    type="button"
-                    onClick={() => setShowNuevaCatInput(true)}
-                    className="text-[10px] text-cafe-medio hover:text-cafe-claro font-bold flex items-center gap-0.5"
-                  >
-                    <Plus size={10} /> Nueva
-                  </button>
-                )}
-              </div>
-              {showNuevaCatInput ? (
-                <div className="flex gap-1.5">
-                  <input
-                    type="text"
-                    placeholder="Nombre categoría..."
-                    value={nuevaCatNombre}
-                    onChange={(e) => setNuevaCatNombre(e.target.value)}
-                    className="flex-1 px-2.5 py-1.5 text-xs border border-cafe-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-cafe-medio/30"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAgregarCategoria}
-                    className="px-2.5 py-1.5 text-xs font-bold bg-cafe-medio text-white rounded-lg hover:bg-cafe-claro transition-colors"
-                  >
-                    Agregar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowNuevaCatInput(false)
-                      setNuevaCatNombre('')
-                    }}
-                    className="px-2 py-1.5 text-xs font-semibold text-cafe-claro hover:bg-cafe-crema rounded-lg transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              ) : (
-                <select
-                  name="categoria"
-                  value={form.categoria}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 text-sm border border-cafe-beige rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-cafe-medio/30"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm(prev => ({
+                      ...prev,
+                      variantes: [...prev.variantes, { nombre: '', stock: '' }]
+                    }))
+                  }}
+                  className="text-[10px] text-cafe-medio hover:text-cafe-claro font-bold flex items-center gap-0.5 bg-white px-2 py-1 rounded-md border border-cafe-beige shadow-sm"
                 >
-                  <option value="">Seleccione...</option>
-                  {opcionesCategorias.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                  <Plus size={10} /> Añadir Variante
+                </button>
+              </div>
+
+              {form.variantes.length === 0 ? (
+                <p className="text-xs text-cafe-claro text-center py-2">No hay variantes agregadas.</p>
+              ) : (
+                <div className="space-y-2">
+                  {form.variantes.map((v, idx) => (
+                    <div key={idx} className="flex gap-2 items-start">
+                      <div className="flex-1">
+                        <input
+                          placeholder="Nombre (ej: Poker)"
+                          value={v.nombre}
+                          onChange={(e) => {
+                            const newVars = [...form.variantes]
+                            newVars[idx].nombre = e.target.value
+                            setForm({ ...form, variantes: newVars })
+                          }}
+                          className="w-full px-2 py-1.5 text-xs border border-cafe-beige rounded-md focus:outline-none focus:ring-1 focus:ring-cafe-medio bg-white"
+                        />
+                      </div>
+                      <div className="w-24">
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="Stock"
+                          value={v.stock}
+                          onChange={(e) => {
+                            const newVars = [...form.variantes]
+                            newVars[idx].stock = e.target.value
+                            setForm({ ...form, variantes: newVars })
+                          }}
+                          className="w-full px-2 py-1.5 text-xs border border-cafe-beige rounded-md focus:outline-none focus:ring-1 focus:ring-cafe-medio bg-white"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newVars = form.variantes.filter((_, i) => i !== idx)
+                          setForm({ ...form, variantes: newVars })
+                        }}
+                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   ))}
-                </select>
+                  <div className="flex justify-end pt-2 border-t border-cafe-beige/50">
+                    <p className="text-xs font-semibold text-cafe-oscuro">
+                      Stock Total: {form.variantes.reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0)}
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-cafe-claro uppercase tracking-wide mb-1">
+                  Stock *
+                </label>
+                <input
+                  name="stock"
+                  type="number"
+                  min="0"
+                  value={form.stock}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3 py-2 text-sm border border-cafe-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-cafe-medio/30"
+                />
+              </div>
+              <div /> {/* Spacer */}
+            </div>
+          )}
+
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-xs font-semibold text-cafe-claro uppercase tracking-wide">
+                Categoría
+              </label>
+              {!showNuevaCatInput && (
+                <button
+                  type="button"
+                  onClick={() => setShowNuevaCatInput(true)}
+                  className="text-[10px] text-cafe-medio hover:text-cafe-claro font-bold flex items-center gap-0.5"
+                >
+                  <Plus size={10} /> Nueva
+                </button>
+              )}
+            </div>
+            {showNuevaCatInput ? (
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  placeholder="Nombre categoría..."
+                  value={nuevaCatNombre}
+                  onChange={(e) => setNuevaCatNombre(e.target.value)}
+                  className="flex-1 px-2.5 py-1.5 text-xs border border-cafe-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-cafe-medio/30"
+                />
+                <button
+                  type="button"
+                  onClick={handleAgregarCategoria}
+                  className="px-2.5 py-1.5 text-xs font-bold bg-cafe-medio text-white rounded-lg hover:bg-cafe-claro transition-colors"
+                >
+                  Agregar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNuevaCatInput(false)
+                    setNuevaCatNombre('')
+                  }}
+                  className="px-2 py-1.5 text-xs font-semibold text-cafe-claro hover:bg-cafe-crema rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <select
+                name="categoria"
+                value={form.categoria}
+                onChange={handleChange}
+                className="w-full px-3 py-2 text-sm border border-cafe-beige rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-cafe-medio/30"
+              >
+                <option value="">Seleccione...</option>
+                {opcionesCategorias.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-2">

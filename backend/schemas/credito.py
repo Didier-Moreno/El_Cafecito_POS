@@ -55,3 +55,12 @@ class PagoCredito(PagoCreditoCreate):
 
     class Config:
         from_attributes = True
+
+
+class DeudaAnteriorCreate(BaseModel):
+    cliente_id: Optional[int] = None
+    cliente_nombre: Optional[str] = None
+    monto: float
+    nota: Optional[str] = None
+    fecha: Optional[str] = None
+

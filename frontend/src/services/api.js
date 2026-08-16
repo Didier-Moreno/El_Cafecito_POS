@@ -41,5 +41,11 @@ export const getCreditos       = () => api.get('/creditos')
 export const createCredito     = (data) => api.post('/creditos', data)
 export const registrarPago     = (creditoId, data) => api.post(`/creditos/${creditoId}/pagos`, data)
 export const eliminarCredito   = (creditoId) => api.delete(`/creditos/${creditoId}`)
+export const registrarDeudaAnterior = (data) => api.post('/creditos/deuda-anterior', data)
+
+// ─── Flujo de Caja ────────────────────────────────────────────────────────────
+
+export const getFlujoCaja        = (fecha) => api.get('/reportes/flujo-caja', { params: { fecha } })
+export const guardarAperturaCaja = (data)  => api.post('/reportes/flujo-caja/apertura', data)
 
 export default api

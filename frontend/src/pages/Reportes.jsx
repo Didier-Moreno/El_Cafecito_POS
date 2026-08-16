@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ShoppingCart, Clock, Star, TrendingUp, AlertCircle, RefreshCw, Trash2 } from 'lucide-react'
+import { ShoppingCart, Wallet, Star, TrendingUp, AlertCircle, RefreshCw, Trash2 } from 'lucide-react'
 import PageContainer from '../components/ui/PageContainer'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import StatCard from '../components/ui/StatCard'
@@ -7,15 +7,31 @@ import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
 import { useReporteOperacional } from '../hooks/useReporteOperacional'
 import { formatPrecio } from '../utils/format'
-import { deleteVenta } from '../services/api'
+import { deleteVenta, getFlujoCaja } from '../services/api'
+import { useNavigate } from 'react-router-dom'
 
 export default function Reportes() {
+  const navigate = useNavigate()
   const { data, loading, error, fecha, setFecha, refetch } = useReporteOperacional()
 
   // ── Estados para eliminación ──
   const [ventaAEliminar, setVentaAEliminar] = useState(null)
   const [eliminando, setEliminando] = useState(false)
   const [notificacion, setNotificacion] = useState(null)
+
+  // ── Caja real del día (excluye ventas a crédito pendiente) ──
+  const [cajaEsperada, setCajaEsperada] = useState(null)
+
+  useEffect(() => {
+    if (!fecha) return
+    getFlujoCaja(fecha)
+      .then(res => {
+        const d = res.data
+        // dinero_inicial 0 si no se ha configurado, pero igual mostramos el calculado
+        setCajaEsperada(d?.caja_esperada ?? 0)
+      })
+      .catch(() => setCajaEsperada(null))
+  }, [fecha])
 
   const isToday = fecha === new Date().toLocaleDateString('en-CA')
 
@@ -45,7 +61,6 @@ export default function Reportes() {
 
   const kpis       = data?.kpis        ?? { suma: 0, cantidad: 0 }
   const prodTop    = data?.producto_top ?? {}
-  const horaPico   = data?.hora_pico   ?? {}
   const detalle    = data?.detalle     ?? []
 
   // Ordenar detalle de ventas de forma cronológica (AM/PM)
@@ -149,11 +164,12 @@ export default function Reportes() {
               color="cafe"
             />
             <StatCard
-              icon={Clock}
-              label="Hora Pico"
-              value={horaPico.hora !== undefined ? `${String(horaPico.hora).padStart(2,'0')}:00` : '—'}
-              sub={horaPico.cantidad_transacciones ? `${horaPico.cantidad_transacciones} transacciones` : 'Sin datos'}
+              icon={Wallet}
+              label="Caja del Día"
+              value={cajaEsperada !== null ? `$${formatPrecio(cajaEsperada)}` : '...'}
+              sub="Ver flujo de caja"
               color="warning"
+              onClick={() => navigate('/flujo-caja')}
             />
           </div>
 

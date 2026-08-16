@@ -10,6 +10,7 @@ import Gastos from '../pages/Gastos'
 import Reportes from '../pages/Reportes'
 import Analisis from '../pages/Analisis'
 import Configuracion from '../pages/Configuracion'
+import FlujoCaja from '../pages/FlujoCaja'
 
 export default function AppRoutes() {
   return (
@@ -27,6 +28,7 @@ export default function AppRoutes() {
           <Route path="creditos" element={<Creditos />} />
           <Route path="gastos" element={<Gastos />} />
           <Route path="reportes" element={<Reportes />} />
+          <Route path="flujo-caja" element={<FlujoCaja />} />
           <Route path="analisis" element={<Analisis />} />
           <Route path="configuracion" element={<Configuracion />} />
         </Route>

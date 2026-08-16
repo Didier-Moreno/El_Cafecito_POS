@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from schemas.caja import AperturaCajaCreate
 from database import supabase
 
 router = APIRouter(
@@ -74,3 +75,57 @@ async def obtener_reporte_operacional(fecha: str = None):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error al obtener reporte operacional: {str(e)}")
+
+
+@router.get("/flujo-caja")
+async def obtener_flujo_caja(fecha: str = None):
+    """Retorna el flujo de caja completo para una fecha (entradas, salidas, caja esperada)."""
+    try:
+        from datetime import date as dt_date
+        fecha_param = fecha if fecha else str(dt_date.today())
+
+        response = supabase.rpc(
+            "obtener_flujo_caja",
+            {"p_fecha": fecha_param}
+        ).execute()
+
+        if hasattr(response, 'error') and response.error:
+            raise HTTPException(status_code=400, detail=str(response.error))
+
+        # La RPC siempre retorna datos (aunque sea con ceros)
+        if response.data is None:
+            raise HTTPException(status_code=400, detail="Sin datos para esa fecha.")
+
+        return response.data
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error al obtener flujo de caja: {str(e)}")
+
+
+@router.post("/flujo-caja/apertura")
+async def guardar_apertura_caja(payload: AperturaCajaCreate):
+    """Crea o actualiza el registro de caja_diaria para la fecha indicada (upsert)."""
+    try:
+        data = {
+            "fecha":           str(payload.fecha),
+            "dinero_inicial":  payload.dinero_inicial,
+            "nota":            payload.nota,
+        }
+        if payload.dinero_contado is not None:
+            data["dinero_contado"] = payload.dinero_contado
+
+        response = (
+            supabase.table("caja_diaria")
+            .upsert(data, on_conflict="fecha")
+            .execute()
+        )
+
+        if not response.data:
+            raise HTTPException(status_code=400, detail="No se pudo guardar la apertura de caja.")
+
+        return response.data[0]
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error al guardar apertura de caja: {str(e)}")
